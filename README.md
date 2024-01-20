@@ -1,5 +1,7 @@
 # Beam
 
+[![codecov](https://codecov.io/gh/prncss-xyz/beam/graph/badge.svg?token=goDnJXXmy9)](https://codecov.io/gh/prncss-xyz/beam)
+
 Functional optics and transducers sharing a destiny. This is mostly exploratory work for now. Although I do care about code quality, don't use this in production.
 
 ## Transducers
