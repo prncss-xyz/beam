@@ -1,0 +1,22 @@
+{
+  "targetDefaults": {
+    "test:coverage": {
+      "inputs": [
+        "{projectRoot}/**/*",
+        "!{projectRoot}/coverage/**/*",
+        "!{projectRoot}/**/*.md"
+      ],
+      "outputs": ["{projectRoot}/coverage"],
+      "cache": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["{projectRoot}/lib"],
+      "cache": true
+    }
+  },
+  "affected": {
+    "defaultBase": "main"
+  },
+  "nxCloudAccessToken": "MDRmZjE5ZTktYmQ2Zi00YzI2LTk4MTEtZDJjZWI2YTMxM2FkfHJlYWQtd3JpdGU="
+}
