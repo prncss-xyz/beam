@@ -1,0 +1,93 @@
+{
+  "graph": {
+    "nodes": {
+      "beam": {
+        "name": "beam",
+        "type": "lib",
+        "data": {
+          "root": "packages/beam",
+          "sourceRoot": "packages/beam",
+          "name": "beam",
+          "projectType": "library",
+          "targets": {
+            "dev": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev"
+              },
+              "configurations": {}
+            },
+            "build": {
+              "outputs": [
+                "{projectRoot}/dist"
+              ],
+              "cache": true,
+              "inputs": [
+                "{projectRoot}/**/*",
+                "!{projectRoot}/coverage/**/*",
+                "!{projectRoot}/**/*.md"
+              ],
+              "executor": "nx:run-script",
+              "options": {
+                "script": "build"
+              },
+              "configurations": {}
+            },
+            "preview": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "preview"
+              },
+              "configurations": {}
+            },
+            "lint": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "lint"
+              },
+              "configurations": {}
+            },
+            "test": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "test"
+              },
+              "configurations": {}
+            },
+            "test:coverage": {
+              "inputs": [
+                "{projectRoot}/**/*",
+                "!{projectRoot}/coverage/**/*",
+                "!{projectRoot}/**/*.md"
+              ],
+              "outputs": [
+                "{projectRoot}/coverage"
+              ],
+              "cache": true,
+              "executor": "nx:run-script",
+              "options": {
+                "script": "test:coverage"
+              },
+              "configurations": {}
+            },
+            "nx-release-publish": {
+              "dependsOn": [
+                "^nx-release-publish"
+              ],
+              "executor": "@nx/js:release-publish",
+              "options": {},
+              "configurations": {}
+            }
+          },
+          "implicitDependencies": [],
+          "tags": []
+        }
+      }
+    },
+    "dependencies": {
+      "beam": []
+    }
+  },
+  "affectedProjects": [],
+  "criticalPath": []
+}

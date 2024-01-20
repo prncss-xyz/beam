@@ -2,17 +2,29 @@
   "targetDefaults": {
     "test:coverage": {
       "inputs": [
-        "{projectRoot}/**/*",
-        "!{projectRoot}/coverage/**/*",
-        "!{projectRoot}/**/*.md"
+        "{projectRoot}/src/*",
+        "{projectRoot}/.eslintrc.js",
+        "{projectRoot}/package.json",
+        "{projectRoot}/tsconfig.json",
+        "{projectRoot}/vite.config.ts",
+        "{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/dist/**/*"
       ],
       "outputs": ["{projectRoot}/coverage"],
       "cache": true
     },
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["{projectRoot}/lib"],
-      "cache": true
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/src/*",
+        "{projectRoot}/.eslintrc.js",
+        "{projectRoot}/package.json",
+        "{projectRoot}/tsconfig.json",
+        "{projectRoot}/vite.config.ts",
+        "{projectRoot}/node_modules/**/*",
+        "!{projectRoot}/coverage/**/*"
+      ]
     }
   },
   "affected": {
