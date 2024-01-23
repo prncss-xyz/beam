@@ -17,26 +17,44 @@ import {
   find,
 } from "./reducers";
 import { toArray, fromIter, iterColl } from "./transformers";
+import { transformIterator } from "./utils";
 
 const mul = (x: number) => (y: number) => x * y;
 const odd = (x: number) => x % 2 === 1;
 
 describe("reducers", () => {
   describe("errors", () => {
-    const fail = (_: number): number => {
-      throw "failure";
+    const fail = (i: number): number => {
+      if (i === 5) throw "failure";
+      return i;
     };
     it("shoud rethrow an error (core/transform)", () => {
       expect(() => {
-        fromIter([1, 2, 3])(toArray<number>(), map(fail));
+        fromIter([4, 5, 6])(toArray<number>(), map(fail));
       }).toThrowError("failure");
+    });
+    it("shoud rethrow an error (core/step)", () => {
+      const xs: [number, number][] = [];
+      for (const x of transformIterator(
+        iterColl<number>(),
+        [1, 2, 3],
+      )<[number, number]>(
+        zip(
+          iterColl(),
+          [4, 5, 6],
+          takeWhile((x) => x < 5),
+        ),
+      )) {
+        xs.push(x);
+      }
+      expect(xs).toEqual([[1, 4]]);
     });
     it("shoud rethrow an error (core/step)", () => {
       expect(() => {
         fromIter([1, 2, 3])(
           toArray<[number, number]>(),
           zip(iterColl(), [4, 5, 6], map(fail)),
-        )
+        );
       }).toThrowError("failure");
     });
   });
@@ -55,9 +73,9 @@ describe("reducers", () => {
     });
   });
   describe("take", () => {
-    const xs = fromIter(["kayak", "chair", "goat"])(toArray<string>(), take(1));
-    it("should take a kayak", () => {
-      expect(xs).toEqual(["kayak"]);
+    const xs = fromIter(["kayak", "chair", "goat"])(toArray<string>(), take(2));
+    it("should take a kayak (and a chair)", () => {
+      expect(xs).toEqual(["kayak", "chair"]);
     });
   });
   describe("find", () => {

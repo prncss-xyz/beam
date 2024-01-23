@@ -7,14 +7,18 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
+    "dev:test": "vitest",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "npx tsc --noEmit; next lint",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run"
   },
   "keywords": [],
   "devDependencies": {
+    "@stryker-mutator/core": "^8.0.0",
+    "@stryker-mutator/typescript-checker": "^8.0.0",
+    "@stryker-mutator/vitest-runner": "^8.0.0",
     "@types/node": "^20.11.5",
     "@types/ramda": "^0.29.9",
     "@typescript-eslint/eslint-plugin": "^6.19.0",

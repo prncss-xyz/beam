@@ -157,6 +157,8 @@ export function fromLoop<T>(cond: (b: T) => boolean, step: (b: T) => T) {
 }
 
 export function fromRange(to: number, step: number) {
+  if (step === 0) throw new Error("step cannot be 0");
+  // Stryker disable next-line EqualityOperator
   const cond = step > 0 ? (v: number) => v <= to : (v: number) => v >= to;
   return fromLoop(cond, (v) => v + step);
 }

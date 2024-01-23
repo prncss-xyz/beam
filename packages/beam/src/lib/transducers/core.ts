@@ -67,7 +67,7 @@ export function step<B, N, P, Q>(
   coll: ICollection<P, Q, N>,
 ) {
   let alive = true;
-  function complete() {
+  function close() {
     alive = false;
   }
 
@@ -77,7 +77,7 @@ export function step<B, N, P, Q>(
 
   const ctx = op({
     cut,
-    close: complete,
+    close,
     fold,
     transform,
     step,
@@ -93,7 +93,7 @@ export function step<B, N, P, Q>(
       }
       const r = unfold(unacc);
       if (r === undefined) {
-        complete();
+        close();
         return { done: true, value: undefined };
       }
       let b;
@@ -102,7 +102,7 @@ export function step<B, N, P, Q>(
         acc = fold_(acc, b);
       } catch (value) {
         if (value !== cutSymbol) throw value;
-        complete();
+        close();
         return { done: true, value: undefined };
       }
     }
@@ -110,7 +110,7 @@ export function step<B, N, P, Q>(
       const res = acc.shift() as B;
       return { done: false, value: res };
     }
-    complete();
+    close();
     return { done: true, value: undefined };
   };
 }

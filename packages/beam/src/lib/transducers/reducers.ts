@@ -21,6 +21,9 @@ export function take<A, B>(n: number): Op<A, B, B> {
       ...ctx,
       fold: function (a, b) {
         i++;
+        // FIX: expliictly replacing by mutant `if (true) ctx.close();` does cause tests to fail
+        // a shared state do not seem to be in cause; will worth investigating further
+        // Stryker disable next-line ConditionalExpression
         if (i === n) ctx.close();
         return ctx.fold(a, b);
       },

@@ -75,6 +75,10 @@ describe("reducers", () => {
       const x = fromConcat("abc")(toConcat(), identity);
       expect(x).toEqual("abc");
     });
+    it("should have zero element", () => {
+      const x = fromConcat("")(toArray(), identity);
+      expect(x).toEqual([]);
+    });
   });
   describe("loopForm", () => {
     it("should loop from value applying step until condition is met", () => {
@@ -84,13 +88,18 @@ describe("reducers", () => {
   });
   describe("rangeForm", () => {
     describe("should produce the elements up to value by increment", () => {
+      it("should not have step 0", () => {
+        expect(() => {
+          fromRange(4, 0)(0)(toArray<number>(), identity);
+        }).toThrowError("step cannot be 0");
+      });
       it("ascending", () => {
-        const x = fromRange(3, 2)(0)(toArray<number>(), identity);
-        expect(x).toEqual([0, 2]);
+        const x = fromRange(4, 2)(0)(toArray<number>(), identity);
+        expect(x).toEqual([0, 2, 4]);
       });
       it("descending", () => {
-        const x = fromRange(-3, -2)(0)(toArray<number>(), identity);
-        expect(x).toEqual([0, -2]);
+        const x = fromRange(-4, -2)(0)(toArray<number>(), identity);
+        expect(x).toEqual([0, -2, -4]);
       });
     });
   });
