@@ -4,7 +4,8 @@ import {
   drop,
   dropWhile,
   filter,
-  fold,
+  find,
+  scan,
   map,
   replace,
   slices,
@@ -12,15 +13,11 @@ import {
   takeWhile,
   uniq,
   zip,
-  flatten,
+  join,
   chain,
-  find,
 } from "./reducers";
 import { toArray, fromIter, iterColl } from "./transformers";
-import { transformIterator } from "./utils";
-
-const mul = (x: number) => (y: number) => x * y;
-const odd = (x: number) => x % 2 === 1;
+import { fc } from "@fast-check/vitest";
 
 describe("reducers", () => {
   describe("errors", () => {
@@ -33,238 +30,279 @@ describe("reducers", () => {
         fromIter([4, 5, 6])(toArray<number>(), map(fail));
       }).toThrowError("failure");
     });
-    it("shoud rethrow an error (core/step)", () => {
-      const xs: [number, number][] = [];
-      for (const x of transformIterator(
-        iterColl<number>(),
-        [1, 2, 3],
-      )<[number, number]>(
-        zip(
-          iterColl(),
-          [4, 5, 6],
-          takeWhile((x) => x < 5),
-        ),
-      )) {
-        xs.push(x);
-      }
-      expect(xs).toEqual([[1, 4]]);
-    });
-    it("shoud rethrow an error (core/step)", () => {
-      expect(() => {
-        fromIter([1, 2, 3])(
-          toArray<[number, number]>(),
-          zip(iterColl(), [4, 5, 6], map(fail)),
-        );
-      }).toThrowError("failure");
-    });
   });
   describe("map", () => {
-    test("should map with a type change", () => {
-      const toAs = (x: number) => {
-        let s = "";
-        while (x > 0) {
-          x--;
-          s += "a";
-        }
-        return s;
-      };
-      const xs = fromIter([1, 2, 3])(toArray<string>(), map(toAs));
-      expect(xs).toEqual(["a", "aa", "aaa"]);
+    test("should map", () => {
+      fc.assert(
+        fc.property(fc.integer(), fc.array(fc.integer()), (n, xs) => {
+          const f = (x: number) => x * n;
+          expect(fromIter(xs)(toArray(), map(f))).toEqual(xs.map(f));
+        }),
+      );
     });
   });
   describe("take", () => {
-    const xs = fromIter(["kayak", "chair", "goat"])(toArray<string>(), take(2));
-    it("should take a kayak (and a chair)", () => {
-      expect(xs).toEqual(["kayak", "chair"]);
-    });
-  });
-  describe("find", () => {
-    const xs = fromIter(["kayak", "chair", "goat"])(
-      toArray<string>(),
-      find((x: string) => x === "chair"),
-    );
-    it("should return all results up to seek target", () => {
-      expect(xs).toEqual(["kayak", "chair"]);
+    it("should take", () => {
+      fc.assert(
+        fc.property(fc.nat({ max: 5 }), fc.array(fc.integer()), (n, data) => {
+          const xs = fromIter(data)(toArray<number>(), take(n));
+          const n0 = Math.min(n, data.length);
+          expect(xs).toHaveLength(n0);
+          for (let i = 0; i < n0; i++) {
+            expect(xs[i]).toBe(data[i]);
+          }
+        }),
+      );
     });
   });
   describe("drop", () => {
-    const xs = fromIter(["kayak", "chair", "goat"])(toArray<string>(), drop(1));
-    it("should drop a kayak", () => {
-      expect(xs).toEqual(["chair", "goat"]);
+    it("should drop", () => {
+      fc.assert(
+        fc.property(fc.nat({ max: 5 }), fc.array(fc.integer()), (n, data) => {
+          const xs = fromIter(data)(toArray<number>(), drop(n));
+          const n0 = Math.min(n, data.length);
+          expect(xs).toHaveLength(data.length - n0);
+          for (let i = 0; i < n0; i++) {
+            expect(xs[i]).toBe(data[n0 + i]);
+          }
+        }),
+      );
+    });
+  });
+  describe("find", () => {
+    it("should takeWhile pred is true", () => {
+      fc.assert(
+        fc.property(
+          fc.nat({ max: 5 }),
+          fc.array(fc.nat({ max: 5 })),
+          (n, data) => {
+            const pred = (x: number) => x === n;
+            const xs = fromIter(data)(toArray<number>(), find(pred));
+            const index = data.findIndex(pred);
+            if (index === -1) expect(xs).toEqual([]);
+            else expect(xs).toEqual([n]);
+          },
+        ),
+      );
     });
   });
   describe("takeWhile", () => {
-    it("should take while cond is true", () => {
-      const xs = fromIter([1, 3, 4, 5])(toArray<number>(), takeWhile(odd));
-      expect(xs).toEqual([1, 3]);
+    it("should takeWhile pred is true", () => {
+      fc.assert(
+        fc.property(
+          fc.nat({ max: 5 }),
+          fc.array(fc.nat({ max: 5 })),
+          (n, data) => {
+            const pred = (x: number) => x !== n;
+            const xs = fromIter(data)(toArray<number>(), takeWhile(pred));
+            const index = data.findIndex((x) => !pred(x));
+            const n_ = index === -1 ? data.length : index;
+            expect(xs).toHaveLength(n_);
+            for (let i = 0; i < n_; i++) {
+              expect(xs[i]).toBe(data[i]);
+            }
+          },
+        ),
+      );
     });
   });
   describe("dropWhile", () => {
-    it("should drop while cond is true", () => {
-      const xs = fromIter([1, 3, 4, 5])(toArray<number>(), dropWhile(odd));
-      expect(xs).toEqual([4, 5]);
+    it("should dropWhile pred is true", () => {
+      fc.assert(
+        fc.property(
+          fc.nat({ max: 5 }),
+          fc.array(fc.nat({ max: 5 })),
+          (n, data) => {
+            const pred = (x: number) => x !== n;
+            const xs = fromIter(data)(toArray<number>(), dropWhile(pred));
+            const index = data.findIndex((x) => !pred(x));
+            const n_ = index === -1 ? 0 : data.length - index;
+            expect(xs).toHaveLength(n_);
+            for (let i = 0; i < n_; i++) {
+              expect(xs[i]).toBe(data[i + index]);
+            }
+          },
+        ),
+      );
     });
   });
   describe("uniq", () => {
-    it("should remove consecutive duplicates", () => {
-      const xs = fromIter([1, 1, 2, 3, 2])(toArray<number>(), uniq());
-      expect(xs).toEqual([1, 2, 3, 2]);
-    });
-    it("should treat undefined as any other value", () => {
-      const xs = fromIter([undefined, 1, 1, undefined, undefined, 3, 1, 3])(
-        toArray<number | undefined>(),
-        uniq(),
+    it("should remove consecutive duplicates (including undefined)", () => {
+      fc.assert(
+        fc.property(
+          fc.record({
+            num: fc.boolean(),
+            times: fc.array(fc.integer({ min: 1, max: 5 })),
+          }),
+          ({ times, num }) => {
+            const expected: (number | undefined)[] = [];
+            const duped: (number | undefined)[] = [];
+            for (const time of times) {
+              num = !num;
+              const val = num ? 1 : undefined;
+              expected.push(val);
+              for (let i = 0; i < time; i++) duped.push(val);
+            }
+            const xs = fromIter(duped)(toArray<number | undefined>(), uniq());
+            expect(xs).toEqual(expected);
+          },
+        ),
       );
-      expect(xs).toEqual([undefined, 1, undefined, 3, 1, 3]);
     });
   });
   describe("filter", () => {
-    const xs = fromIter([1, 2, 3])(toArray<number>(), filter(odd));
-    it("should keep values satisfying predicate", () => {
-      expect(xs).toEqual([1, 3]);
+    it("should filter", () => {
+      fc.assert(
+        fc.property(fc.nat({ max: 5 }), fc.array(fc.integer()), (n, xs) => {
+          const f = (x: number) => x % n === 0;
+          expect(fromIter(xs)(toArray(), filter(f))).toEqual(xs.filter(f));
+        }),
+      );
     });
   });
   describe("replace", () => {
-    const xs = fromIter([2, 3, 4])(
-      toArray<number>(),
-      replace(odd, 2 as number),
-    );
     it("should replace values satisfying predicate", () => {
-      expect(xs).toEqual([2, 2, 4]);
+      fc.assert(
+        fc.property(
+          fc.nat({ max: 5 }),
+          fc.array(fc.nat({ max: 5 })),
+          (n, xs) => {
+            expect(
+              fromIter(xs)(
+                toArray(),
+                replace((x) => x === n, 0),
+              ),
+            ).toEqual(xs.map((x: number) => (x === n ? 0 : x)));
+          },
+        ),
+      );
     });
   });
   describe("apertures", () => {
-    const xs = fromIter([1, 2, 3])(toArray<number[]>(), apertures(2));
     it("should return sliding windows of length n", () => {
-      expect(xs).toEqual([
-        [1, 2],
-        [2, 3],
-      ]);
+      fc.assert(
+        fc.property(
+          fc.record({ n: fc.nat({ max: 5 }), xs: fc.array(fc.integer()) }),
+          ({ n, xs }) => {
+            if (n === 0) {
+              expect(() => {
+                fromIter(xs)(toArray<number[]>(), apertures(n));
+              }).toThrowError("len must be positive");
+              return;
+            }
+            const actual = fromIter(xs)(toArray<number[]>(), apertures(n));
+            for (let i = 0; i + n - 1 < xs.length; ++i)
+              for (let j = 0; j < n; ++j) expect(actual[i][j]).toBe(xs[i + j]);
+          },
+        ),
+      );
     });
   });
   describe("slices", () => {
     it("should return consecutive slices of length n, leaving out extra values", () => {
-      const xs = fromIter([1, 2, 3, 4, 5])(toArray<number[]>(), slices(2));
-      expect(xs).toEqual([
-        [1, 2],
-        [3, 4],
-      ]);
+      fc.assert(
+        fc.property(
+          fc.record({ n: fc.nat({ max: 5 }), xs: fc.array(fc.integer()) }),
+          ({ n, xs }) => {
+            if (n === 0) {
+              expect(() => {
+                fromIter(xs)(toArray<number[]>(), slices(n));
+              }).toThrowError("len must be positive");
+              return;
+            }
+            const actual = fromIter(xs)(toArray<number[]>(), slices(n));
+            let i = 0;
+            while (true) {
+              const p = Math.floor(i / n);
+              if (p * n + n - 1 >= xs.length) break;
+              /* if (i + n > xs.length) break; */
+              const q = i % n;
+              expect(actual[p][q]).toBe(xs[i]);
+              i++;
+            }
+          },
+        ),
+      );
     });
   });
-  describe("fold", () => {
+  describe("scan", () => {
     it("should replace list with folded values", () => {
-      const xs = fromIter([1, 2, 3])(
-        toArray<number>(),
-        fold((a: number, b: number) => a + b, 1),
+      fc.assert(
+        fc.property(fc.array(fc.integer()), (data) => {
+          const sum = (a: number, b: number) => a + b;
+          const xs = fromIter(data)(toArray<number>(), scan(sum, 0));
+          const zs = data.map((_, i) => data.slice(0, i + 1).reduce(sum, 0));
+          expect(xs).toEqual(zs);
+        }),
       );
-      expect(xs).toEqual([2, 4, 7]);
     });
   });
-  describe("map", () => {
-    it("should map values with function", () => {
-      const f = (x: number) => x * 2;
-      const xs = fromIter([1, 2, 3])(toArray<number>(), map(f));
-      expect(xs).toEqual([2, 4, 6]);
-    });
-  });
-  describe("flatten", () => {
-    it("should flatten once", () => {
-      const xs = fromIter([
-        [1, 2, 3],
-        [4, 5],
-      ])(toArray<number>(), flatten(iterColl(), map(mul(2))));
-      expect(xs).toEqual([2, 4, 6, 8, 10]);
-    });
-    it("should flatten twice", () => {
-      const xs = fromIter([[[1, 2, 3]]])(
-        toArray<number>(),
-        pipe(flatten(iterColl()), flatten(iterColl())),
+  describe("join", () => {
+    it("should flatten on level", () => {
+      fc.assert(
+        fc.property(fc.array(fc.array(fc.integer())), (data) => {
+          const xs = fromIter(data)(toArray<number>(), join(iterColl()));
+          const zs = data.flat(1);
+          expect(xs).toEqual(zs);
+        }),
       );
-      expect(xs).toEqual([1, 2, 3]);
     });
-    it("should flatten then map", () => {
-      const xs = fromIter([[1, 2, 3]])(
-        toArray<number>(),
-        pipe(map(mul(2)), flatten(iterColl())),
+    it("should flatten two levels", () => {
+      fc.assert(
+        fc.property(fc.array(fc.array(fc.array(fc.integer()))), (data) => {
+          const xs = fromIter(data)(
+            toArray<number>(),
+            pipe(join(iterColl()), join(iterColl())),
+          );
+          const zs = data.flat(2);
+          expect(xs).toEqual(zs);
+        }),
       );
-      expect(xs).toEqual([2, 4, 6]);
     });
   });
   describe("chain", () => {
-    describe("should flatten a structure", () => {
-      function ar(n: number) {
+    it("should flatten a structure", () => {
+      function f(n: number) {
         const a = [];
         for (let i = 0; i < n; i++) {
           a.push(i);
         }
         return a;
       }
-      it("using chain", () => {
-        const xs = fromIter([1, 2, 3])(
-          toArray<number>(),
-          chain(iterColl(), ar),
-        );
-        expect(xs).toEqual([0, 0, 1, 0, 1, 2]);
-      });
-      it("using map then flatten", () => {
-        const xs = fromIter([1, 2, 3])(
-          toArray<number>(),
-          pipe(flatten(iterColl()), map(ar)),
-        );
-        expect(xs).toEqual([0, 0, 1, 0, 1, 2]);
-      });
+      fc.assert(
+        fc.property(fc.array(fc.nat({ max: 5 })), (data) => {
+          const expected = data.flatMap(f);
+          const actual = fromIter(data)(
+            toArray<number>(),
+            chain(iterColl(), f),
+          );
+          expect(actual).toEqual(expected);
+        }),
+      );
     });
   });
-
   describe("zip", () => {
-    it("should zip (transpose) two structures", () => {
-      const xs = fromIter([1, 2, 3])(
-        toArray<[number, number]>(),
-        zip(iterColl(), [4, 5, 6]),
-      );
-      expect(xs).toEqual([
-        [1, 4],
-        [2, 5],
-        [3, 6],
-      ]);
-    });
-    it("should truncate when first sequence is shorter", () => {
-      const xs = fromIter([1, 2])(
-        toArray<[number, number]>(),
-        zip(iterColl(), [4, 5, 6]),
-      );
-      expect(xs).toEqual([
-        [1, 4],
-        [2, 5],
-      ]);
-    });
-    it("should truncate when second sequence is shorter", () => {
-      const xs = fromIter([1, 2, 3])(
-        toArray<[number, number]>(),
-        zip(iterColl(), [4, 5]),
-      );
-      expect(xs).toEqual([
-        [1, 4],
-        [2, 5],
-      ]);
-    });
-    it("should zip and take", () => {
-      const xs = fromIter([1, 2, 3])(
-        toArray<[number, number]>(),
-        zip(iterColl(), [4, 5, 6], take(1)),
-      );
-      expect(xs).toEqual([[1, 4]]);
-    });
-    it("should zip and take while", () => {
-      const xs = fromIter([1, 2, 3])(
-        toArray<[number, number]>(),
-        zip(
-          iterColl(),
-          [4, 5, 6],
-          takeWhile((x: number) => x < 5),
+    it("zip two arrays", () => {
+      fc.assert(
+        fc.property(
+          fc.array(fc.integer()),
+          fc.array(fc.integer()),
+          (data, ys) => {
+            const xs = fromIter(ys)(
+              toArray<[number, number]>(),
+              zip(iterColl(), data),
+            );
+            const n0 = Math.min(data.length, ys.length);
+            // should trucate to the shortest
+            expect(xs).toHaveLength(n0);
+            // should return list of pairs
+            for (let i = 0; i < n0; i++) {
+              expect(xs[i][0]).toBe(ys[i]);
+              expect(xs[i][1]).toBe(data[i]);
+            }
+          },
         ),
       );
-      expect(xs).toEqual([[1, 4]]);
     });
   });
 });

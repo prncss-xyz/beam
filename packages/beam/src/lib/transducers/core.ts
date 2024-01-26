@@ -88,7 +88,7 @@ export function step<B, N, P, Q>(
   return function next(): IteratorResult<B> {
     while (alive) {
       if (acc.length > 0) {
-        const res = acc.shift() as B;
+        const res = acc.shift()!;
         return { done: false, value: res };
       }
       const r = unfold(unacc);
@@ -107,7 +107,7 @@ export function step<B, N, P, Q>(
       }
     }
     if (acc.length > 0) {
-      const res = acc.shift() as B;
+      const res = acc.shift()!;
       return { done: false, value: res };
     }
     close();

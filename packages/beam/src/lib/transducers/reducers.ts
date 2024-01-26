@@ -16,14 +16,19 @@ export function id<A, B>(): Op<A, B, B> {
 
 export function take<A, B>(n: number): Op<A, B, B> {
   return function (ctx) {
+    if (n === 0)
+      return {
+        ...ctx,
+        // ideally, would prevent even the first iteration
+        fold: function () {
+          return ctx.cut();
+        },
+      };
     let i = 0;
     return {
       ...ctx,
       fold: function (a, b) {
         i++;
-        // FIX: expliictly replacing by mutant `if (true) ctx.close();` does cause tests to fail
-        // a shared state do not seem to be in cause; will worth investigating further
-        // Stryker disable next-line ConditionalExpression
         if (i === n) ctx.close();
         return ctx.fold(a, b);
       },
@@ -70,15 +75,16 @@ export function dropWhile<A, B>(c: (b: B) => boolean): Op<A, B, B> {
     };
   };
 }
-
 export function find<A, B>(c: (b: B) => boolean): Op<A, B, B> {
   return function (ctx) {
     return {
       ...ctx,
       fold: function (a, b) {
-        if (!c(b)) return ctx.fold(a, b);
-        ctx.close();
-        return ctx.fold(a, b);
+        if (c(b)) {
+          ctx.close();
+          return ctx.fold(a, b);
+        }
+        return a;
       },
     };
   };
@@ -136,7 +142,7 @@ export function map<A, B, N>(f: (v: B) => N): Op<A, N, B> {
   };
 }
 
-export function fold<A, B, N>(f: (a: N, b: B) => N, init: N): Op<A, N, B> {
+export function scan<A, B, N>(f: (a: N, b: B) => N, init: N): Op<A, N, B> {
   return function (ctx) {
     let acc_ = init;
     return {
@@ -150,8 +156,9 @@ export function fold<A, B, N>(f: (a: N, b: B) => N, init: N): Op<A, N, B> {
 }
 
 export function slices<A, B>(len: number): Op<A, B[], B> {
+  if (len <= 0) throw new Error("len must be positive");
   return function (ctx) {
-    let acc_ = [] as B[];
+    let acc_: B[] = [];
     return {
       ...ctx,
       fold: function (acc, b) {
@@ -168,8 +175,9 @@ export function slices<A, B>(len: number): Op<A, B[], B> {
 }
 
 export function apertures<A, B>(len: number): Op<A, B[], B> {
+  if (len <= 0) throw new Error("len must be positive");
   return function (ctx) {
-    let acc_ = [] as B[];
+    let acc_: B[] = [];
     return {
       ...ctx,
       fold: function (acc, b) {
@@ -185,6 +193,7 @@ export function apertures<A, B>(len: number): Op<A, B[], B> {
   };
 }
 
+// aka flatMap
 export function chain<A, B, Q>(
   coll: ICollection<any, Q, B>,
   f: (b: B) => Q,
@@ -200,7 +209,8 @@ export function chain<A, B, Q>(
   };
 }
 
-export function flatten<A, B, Q>(
+// aka flatten
+export function join<A, B, Q>(
   coll: ICollection<any, Q, B>,
   op: Op<A, B, B> = id<A, B>(),
 ): Op<A, B, Q> {

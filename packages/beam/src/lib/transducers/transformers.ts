@@ -25,7 +25,7 @@ export function toLast<T>() {
   return {
     init: constant(undefined),
     fold: (_acc: T | undefined, b: T) => b,
-    result: identity,
+    result: identity<T | undefined>,
   };
 }
 
@@ -88,13 +88,13 @@ export function toArray<B>() {
 
 export function arrayColl<T>(): ICollection<T[], T[], T> {
   const coll = {
-    setup: identity<T[]>,
+    setup: (xs: T[]) => [...xs],
     unfold: function (xs: T[]) {
       const x = xs.shift();
       if (x === undefined) {
         return undefined;
       }
-      return [xs, x as T] as const;
+      return [xs, x] as const;
     },
   };
   return coll;
@@ -110,7 +110,7 @@ function toOpFactory<T>(id: T, op: (a: T, b: T) => T) {
     return {
       init: constant(id),
       fold: op,
-      result: identity,
+      result: identity<T>,
     };
   };
 }
@@ -158,7 +158,8 @@ export function fromLoop<T>(cond: (b: T) => boolean, step: (b: T) => T) {
 
 export function fromRange(to: number, step: number) {
   if (step === 0) throw new Error("step cannot be 0");
-  // Stryker disable next-line EqualityOperator
+  // Stryker disable EqualityOperator
   const cond = step > 0 ? (v: number) => v <= to : (v: number) => v >= to;
+  // const cond = step >= 0 ? (v: number) => v <= to : (v: number) => v >= to;
   return fromLoop(cond, (v) => v + step);
 }

@@ -6,7 +6,7 @@ const config = {
   reporters: ["html", "clear-text", "progress"],
   testRunner: "vitest",
   ignorePatterns: ["coverage", "dist"],
-  incremental: true,
+  incremental: false,
   ignoreStatic: false,
   testRunner_comment:
     "Take a look at (missing 'homepage' URL in package.json) for information about the vitest plugin.",
@@ -18,7 +18,7 @@ const config = {
   checkers: ["typescript"],
   tsconfigFile: "tsconfig.json",
   typescriptChecker: {
-    prioritizePerformanceOverAccuracy: true,
+    prioritizePerformanceOverAccuracy: false,
   },
 };
 export default config;

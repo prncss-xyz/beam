@@ -1,4 +1,6 @@
+import { fc } from "@fast-check/vitest";
 import {
+  IXForm,
   forEach,
   fromArray,
   fromConcat,
@@ -14,112 +16,175 @@ import {
   toMul,
   toSum,
 } from "./transformers";
-import { map } from "./reducers";
+import { Op, id } from "./reducers";
 
-const identity = <T>(x: T) => x;
-const add = (x: number) => (y: number) => x + y;
+function identityLaw<T>(arb: fc.Arbitrary<T>, f: (data: T) => T) {
+  it("should respect the identity law", () => {
+    fc.assert(
+      fc.property(arb, (data) => {
+        expect(f(data)).toEqual(data);
+      }),
+    );
+  });
+}
+
+function zeroLaw<A, T>(
+  zero: A,
+  f: (init: A) => <A, B, C>(form: IXForm<A, B, C>, op: Op<A, B, T>) => C,
+) {
+  it("should have a zero element", () => {
+    expect(f(zero)(toArray(), id())).toEqual([]);
+  });
+}
+
+function arbMap<K, V>(key: fc.Arbitrary<K>, value: fc.Arbitrary<V>) {
+  return fc
+    .uniqueArray(fc.tuple(key, value), {
+      selector: (x) => x[0],
+    })
+    .map((data) => new Map(data));
+}
 
 describe("reducers", () => {
+  describe("fromArray", () => {
+    identityLaw(fc.array(fc.integer()), (data) =>
+      fromArray(data)(toArray<number>(), id()),
+    );
+    zeroLaw([], fromArray);
+  });
   describe("fromIter", () => {
-    it("should respect the identity law", () => {
-      const xs = fromIter([1, 2, 3])(toArray<number>(), identity);
-      expect(xs).toEqual([1, 2, 3]);
-    });
+    identityLaw(fc.array(fc.integer()), (data) =>
+      fromIter(data)(toArray<number>(), id()),
+    );
+    zeroLaw([], fromIter);
   });
   describe("mapForm", () => {
-    const xs = fromIter(
-      new Map([
-        [1, 2],
-        [3, 4],
-      ]),
-    )(toMap<number, number>(), identity);
-    it("should respect the identity law", () => {
-      expect(Array.from(xs.entries())).toEqual([
-        [1, 2],
-        [3, 4],
-      ]);
-    });
+    identityLaw(arbMap(fc.integer(), fc.integer()), (data) =>
+      fromIter(data)(toMap<number, number>(), id()),
+    );
+    zeroLaw(new Map(), fromIter);
   });
   describe("last", () => {
     it("should return the last value", () => {
-      const x = fromIter([1, 2, 3])(toLast<number>(), identity);
-      expect(x).toEqual(3);
+      fc.assert(
+        fc.property(fc.array(fc.integer()), (data) => {
+          const x = fromIter(data)(toLast<number>(), id());
+          expect(x).toEqual(data.at(-1));
+        }),
+      );
     });
   });
   describe("sumForm", () => {
     it("should return the sum of elements", () => {
-      const x = fromIter([1, 2])(toSum(), identity);
-      expect(x).toEqual(3);
+      fc.assert(
+        fc.property(fc.array(fc.integer()), (data) => {
+          const x = fromIter(data)(toSum(), id());
+          const r = data.reduce((a, b) => a + b, 0);
+          expect(x).toBe(r);
+        }),
+      );
     });
-    it("should respect identity law", () => {
-      const x = fromSum(3)(toSum(), identity);
-      expect(x).toEqual(3);
-    });
+    identityLaw(fc.integer(), (data) => fromSum(data)(toSum(), id()));
+    zeroLaw(0, fromSum);
   });
   describe("mulForm", () => {
     it("should return the product of elements", () => {
-      const x = fromIter([1, 2, 3])(toSum(), identity);
-      expect(x).toEqual(6);
+      fc.assert(
+        fc.property(fc.array(fc.integer()), (data) => {
+          const x = fromIter(data)(toMul(), id());
+          const r = data.reduce((a, b) => a * b, 1);
+          expect(x).toBe(r);
+        }),
+      );
     });
-    it("should respect identity law", () => {
-      const x = fromMul(3)(toMul(), identity);
-      expect(x).toEqual(3);
-    });
+    identityLaw(fc.integer(), (data) => fromMul(data)(toMul(), id()));
+    zeroLaw(1, fromMul);
   });
   describe("concatForm", () => {
     it("should return the concatenation of elements", () => {
-      const x = fromIter(["a", "b", "c"])(toConcat(), identity);
-      expect(x).toEqual("abc");
+      fc.assert(
+        fc.property(fc.array(fc.string()), (data) => {
+          const x = fromIter(data)(toConcat(), id());
+          const r = data.reduce((a, b) => a + b, "");
+          expect(x).toBe(r);
+        }),
+      );
     });
-    it("should respect identity law", () => {
-      const x = fromConcat("abc")(toConcat(), identity);
-      expect(x).toEqual("abc");
-    });
-    it("should have zero element", () => {
-      const x = fromConcat("")(toArray(), identity);
-      expect(x).toEqual([]);
-    });
+    identityLaw(fc.string(), (data) => fromConcat(data)(toConcat(), id()));
+    zeroLaw("", fromConcat);
   });
   describe("loopForm", () => {
     it("should loop from value applying step until condition is met", () => {
-      const x = fromLoop((x) => x < 3, add(1))(0)(toArray<number>(), identity);
-      expect(x).toEqual([0, 1, 2]);
+      fc.assert(
+        fc.property(
+          fc.record({
+            init: fc.integer({ min: 0, max: 10 }),
+            step: fc.integer({ min: 1, max: 10 }),
+            max: fc.integer({ min: 0, max: 10 }),
+          }),
+          ({ init, step, max }) => {
+            const inc = (x: number) => x + step;
+            const cond = (x: number) => x < max;
+            const expected: number[] = [];
+            for (let i = init; cond(i); i = inc(i)) expected.push(i);
+            const actual = fromLoop(cond, inc)(init)(toArray<number>(), id());
+            expect(actual).toEqual(expected);
+          },
+        ),
+      );
     });
   });
   describe("rangeForm", () => {
-    describe("should produce the elements up to value by increment", () => {
-      it("should not have step 0", () => {
-        expect(() => {
-          fromRange(4, 0)(0)(toArray<number>(), identity);
-        }).toThrowError("step cannot be 0");
-      });
-      it("ascending", () => {
-        const x = fromRange(4, 2)(0)(toArray<number>(), identity);
-        expect(x).toEqual([0, 2, 4]);
-      });
-      it("descending", () => {
-        const x = fromRange(-4, -2)(0)(toArray<number>(), identity);
-        expect(x).toEqual([0, -2, -4]);
-      });
-    });
-  });
-  describe("map", () => {
-    it("should map values with function", () => {
-      const f = (x: number) => x * 2;
-      const xs = fromArray([1, 2, 3])(toArray<number>(), map(f));
-      expect(xs).toEqual([2, 4, 6]);
+    it("should produce the elements up to value by increment", () => {
+      fc.assert(
+        fc.property(
+          fc.tuple(
+            fc.integer({ min: -5, max: 5 }),
+            fc.integer({ min: -5, max: 5 }),
+            fc.integer({ min: -5, max: 5 }),
+          ),
+          ([to, step, init]) => {
+            if (step === 0) {
+              expect(() => {
+                fromRange(to, step)(init)(toArray<number>(), id());
+              }).toThrowError("step cannot be 0");
+              return;
+            }
+            const xs = fromRange(to, step)(init)(toArray<number>(), id());
+            let last: number | undefined;
+            for (const x of xs) {
+              if (last !== undefined) {
+                expect(x - last).toBe(step);
+              }
+              last = x;
+              if (step > 0) {
+                expect(x).toBeLessThanOrEqual(to);
+                expect(x).toBeGreaterThanOrEqual(init);
+              } else {
+                expect(x).toBeLessThanOrEqual(init);
+                expect(x).toBeGreaterThanOrEqual(to);
+              }
+            }
+            last = last === undefined ? init : last + step;
+            if (step > 0) expect(last).toBeGreaterThan(to);
+            else expect(last).toBeLessThan(to);
+          },
+        ),
+      );
     });
   });
   describe("forEach", () => {
     it("should call callback for each occurence", () => {
-      let i = 0;
-      const f = (x: number) => x * 2;
-      fromIter([1, 2, 3])(
-        forEach<number>((x: number) => (i += x)),
-        map(f),
+      fc.assert(
+        fc.property(fc.uniqueArray(fc.integer()), (data) => {
+          const s = new Set(data);
+          fromIter(data)(
+            forEach<number>((x: number) => s.delete(x)),
+            id(),
+          );
+          expect([...s]).toEqual([]);
+        }),
       );
-
-      expect(i).toEqual(12);
     });
   });
 });

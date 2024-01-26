@@ -25,5 +25,6 @@ dist-ssr
 .tmp
 
 coverage/*
+reports/*
 
 .nx/cache

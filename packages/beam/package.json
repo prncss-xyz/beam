@@ -10,7 +10,8 @@
     "dev:test": "vitest",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "npx tsc --noEmit; next lint",
+    "check:types": "tsc --noEmit",
+    "check:lint": "eslint src/*",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run"
   },
@@ -29,6 +30,7 @@
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
     "vite-plugin-dts": "^3.7.1",
+    "@fast-check/vitest": "^0.0.9",
     "vitest": "^1.2.1"
   },
   "author": "Juliette Lamarche",
