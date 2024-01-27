@@ -7,9 +7,6 @@ export const constant =
   () =>
     x;
 
-// TODO: curriend versions (form*)
-// TODO: matchAll, RegExp.prototype[@@matchAll]()
-
 export interface IXForm<A, B, C> {
   init: () => A;
   fold: (a: A, b: B) => A;

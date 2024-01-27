@@ -1,6 +1,6 @@
 import { map, take, id, takeWhile } from "./reducers";
 import { iterColl } from "./transformers";
-import { transformIterator } from "./utils";
+import { transformIterator } from "./iterators";
 import { fc } from "@fast-check/vitest";
 
 describe("utils", () => {
