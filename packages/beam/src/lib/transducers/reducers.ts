@@ -224,11 +224,12 @@ export function join<A, B, Q>(
   };
 }
 
-export function zip<A, B, C, Q>(
+export function zip<A, B, C, Q, R>(
+  f: (b: B, c: C) => R,
   coll: ICollection<any, Q, C>,
   right: Q,
   op: Op<C[], C, C> = id<C[], C>(),
-): Op<A, [B, C], B> {
+): Op<A, R, B> {
   return function (ctx) {
     const iter = ctx.step(op, right, coll);
     return {
@@ -239,7 +240,7 @@ export function zip<A, B, C, Q>(
           return ctx.cut();
         }
         const c = r.value;
-        return ctx.fold(acc, [b, c] as const);
+        return ctx.fold(acc, f(b, c));
       },
     };
   };

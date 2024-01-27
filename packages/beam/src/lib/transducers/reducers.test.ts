@@ -288,9 +288,10 @@ describe("reducers", () => {
           fc.array(fc.integer()),
           fc.array(fc.integer()),
           (data, ys) => {
+            const m = (x: number, y: number) => [x, y] as [number, number];
             const xs = fromIter(ys)(
               toArray<[number, number]>(),
-              zip(iterColl(), data),
+              zip(m, iterColl(), data),
             );
             const n0 = Math.min(data.length, ys.length);
             // should trucate to the shortest
