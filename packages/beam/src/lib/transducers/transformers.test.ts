@@ -1,12 +1,13 @@
 import { fc } from "@fast-check/vitest";
 import {
-  IXForm,
   forEach,
   fromArray,
   fromConcat,
+  fromEmpty,
   fromIter,
   fromLoop,
   fromMul,
+  fromOnce,
   fromRange,
   fromSum,
   toArray,
@@ -16,7 +17,8 @@ import {
   toMul,
   toSum,
 } from "./transformers";
-import { Op, id } from "./reducers";
+import { id } from "./reducers";
+import { IXForm, Op } from "./core";
 
 function identityLaw<T>(arb: fc.Arbitrary<T>, f: (data: T) => T) {
   it("should respect the identity law", () => {
@@ -30,7 +32,7 @@ function identityLaw<T>(arb: fc.Arbitrary<T>, f: (data: T) => T) {
 
 function zeroLaw<A, T>(
   zero: A,
-  f: (init: A) => <A, B, C>(form: IXForm<A, B, C>, op: Op<A, B, T>) => C,
+  f: (init: A) => <A, B>(form: IXForm<A, B>, op: Op<B, T>) => A,
 ) {
   it("should have a zero element", () => {
     expect(f(zero)(toArray(), id())).toEqual([]);
@@ -185,6 +187,19 @@ describe("reducers", () => {
           expect([...s]).toEqual([]);
         }),
       );
+    });
+  });
+  describe("emptyColl", () => {
+    it("should produce no values", () => {
+      const xs = fromEmpty<number>()(toArray<number>(), id());
+      expect(xs).toEqual([]);
+    });
+  });
+  describe("onceColl", () => {
+    it("should produce no values", () => {
+      const x = 3;
+      const xs = fromOnce<number>(x)(toArray<number>(), id());
+      expect(xs).toEqual([x]);
     });
   });
 });

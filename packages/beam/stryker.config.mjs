@@ -1,11 +1,9 @@
 /* v8 ignore start  */
 const config = {
-  _comment:
-    "This config was generated using 'stryker init'. Please take a look at: https://stryker-mutator.io/docs/stryker-js/configuration/ for more information.",
   packageManager: "pnpm",
   reporters: ["html", "clear-text", "progress"],
   testRunner: "vitest",
-  ignorePatterns: ["coverage", "dist"],
+  ignorePatterns: ["coverage", "dist", "tmp"],
   incremental: false,
   ignoreStatic: false,
   testRunner_comment:

@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "types": [
+      "vitest/globals"
+    ],
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "emitDeclarationOnly": false,
+    "incremental": true,
+    "tsBuildInfoFile": "/home/prncss/Projects/github.com/prncss-xyz/beam/node_modules/.pnpm/vitest@1.6.0_@types+node@20.12.10/node_modules/vitest/dist/vendor/tsconfig.tmp.tsbuildinfo"
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "tmp/**"
+  ]
+}

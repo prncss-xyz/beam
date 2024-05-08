@@ -1,22 +1,39 @@
-import { Op } from "./reducers";
-import { ICollection, IXForm, toArray } from "./transformers";
+export type Op<B, N> = <A>(c: Ctx<A, B>) => Ctx<A, N>;
+
+export function toArray<B>(): IXForm<B[], B> {
+  return {
+    init: () => [],
+    fold: function (acc, b) {
+      acc.push(b);
+      return acc;
+    },
+  };
+}
+
+export interface IXForm<A, B> {
+  init: () => A;
+  fold: (a: A, b: B) => A;
+}
+
+export interface ICollection<P, Q, B> {
+  readonly setup: (a: Q) => P;
+  readonly unfold: (unacc: P) => readonly [P, B] | undefined;
+}
 
 export interface Ctx<A, B> {
   fold: (a: A, b: B) => A;
   cut: () => never;
   close: () => void;
   step: <C, P, Q, N>(
-    op: Op<C[], C, N>,
+    op: Op<C, N>,
     init: Q,
     coll: ICollection<P, Q, N>,
   ) => () => IteratorResult<C>;
   transform: <P, Q, N>(
-    op: Op<A, N, N>,
-    acc: A,
-    fold: (a: A, b: N) => A,
+    op: Op<N, N>,
     init: Q,
     coll: ICollection<P, Q, N>,
-  ) => A;
+  ) => <A>(acc: A, fold: (a: A, b: N) => A) => A;
 }
 
 const cutSymbol = Symbol("cut");
@@ -25,44 +42,44 @@ function cut(): never {
   throw cutSymbol;
 }
 
-export function transform<A, B, N, P, Q>(
-  op: Op<A, B, N>,
-  acc: A,
-  fold: (a: A, b: B) => A,
+export function transform<B, N, P, Q>(
+  op: Op<B, N>,
   init: Q,
   coll: ICollection<P, Q, N>,
-): A {
-  let alive = true;
-  function close() {
-    alive = false;
-  }
-  const ctx = op({
-    cut,
-    close,
-    fold,
-    transform,
-    step,
-  });
-  const fold_ = ctx.fold;
-  let unacc = coll.setup(init);
-  const unfold = coll.unfold;
-  while (alive) {
-    const r = unfold(unacc);
-    if (r === undefined) break;
-    let b;
-    [unacc, b] = r;
-    try {
-      acc = fold_(acc, b);
-    } catch (value) {
-      if (value !== cutSymbol) throw value;
-      close();
+) {
+  return <A>(acc: A, fold: (a: A, b: B) => A) => {
+    let alive = true;
+    function close() {
+      alive = false;
     }
-  }
-  return acc;
+    const ctx = op({
+      cut,
+      close,
+      fold,
+      transform,
+      step,
+    });
+    const fold_ = ctx.fold;
+    let unacc = coll.setup(init);
+    const unfold = coll.unfold;
+    while (alive) {
+      const r = unfold(unacc);
+      if (r === undefined) break;
+      unacc = r[0];
+      const b = r[1];
+      try {
+        acc = fold_(acc, b);
+      } catch (value) {
+        if (value !== cutSymbol) throw value;
+        close();
+      }
+    }
+    return acc;
+  };
 }
 
 export function step<B, N, P, Q>(
-  op: Op<B[], B, N>,
+  op: Op<B, N>,
   init: Q,
   coll: ICollection<P, Q, N>,
 ) {
@@ -117,8 +134,8 @@ export function step<B, N, P, Q>(
 
 export const transduce =
   <P, Q, N>(coll: ICollection<P, Q, N>, init: Q) =>
-  <A, B, C>(form: IXForm<A, B, C>, op: Op<A, B, N>) => {
+  <A, B>(form: IXForm<A, B>, op: Op<B, N>) => {
     const acc = form.init();
     const fold = form.fold;
-    return form.result(transform(op, acc, fold, init, coll));
+    return transform(op, init, coll)(acc, fold);
   };

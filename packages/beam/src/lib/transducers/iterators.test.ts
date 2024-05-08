@@ -3,7 +3,7 @@ import { iterColl } from "./transformers";
 import { transformIterator } from "./iterators";
 import { fc } from "@fast-check/vitest";
 
-describe("utils", () => {
+describe("iterators", () => {
   describe("transformIterator", () => {
     it("should iterate", () => {
       fc.assert(

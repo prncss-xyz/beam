@@ -1,28 +1,15 @@
-import { transduce } from "./core";
+import { ICollection, IXForm, toArray, transduce } from "./core";
 
-export const nop = () => {};
-export const identity = <T>(x: T) => x;
-export const constant =
+const identity = <T>(x: T) => x;
+const constant =
   <T>(x: T) =>
   () =>
     x;
 
-export interface IXForm<A, B, C> {
-  init: () => A;
-  fold: (a: A, b: B) => A;
-  result: (a: A) => C;
-}
-
-export interface ICollection<P, Q, B> {
-  setup: (a: Q) => P;
-  unfold: (unacc: P) => readonly [P, B] | undefined;
-}
-
-export function toLast<T>() {
+export function toLast<A>(): IXForm<A | undefined, A> {
   return {
     init: constant(undefined),
-    fold: (_acc: T | undefined, b: T) => b,
-    result: identity<T | undefined>,
+    fold: (_acc, b) => b,
   };
 }
 
@@ -33,7 +20,6 @@ export function forEach<T>(cb: (a: T) => void) {
       acc(b);
       return acc;
     },
-    result: nop,
   };
 }
 
@@ -42,23 +28,51 @@ function getIter<T>(iterable: Iterable<T>) {
   return () => obj.next();
 }
 
-export function iterColl<T>() {
-  const coll = {
-    setup: getIter<T>,
-    unfold: function (next: () => IteratorResult<T, any>) {
-      const { value, done } = next();
-      if (done) return undefined;
-      return [next, value] as const;
+export function fromEmpty<T>() {
+  return transduce(emptyColl<T>(), undefined as void);
+}
+
+export function emptyColl<T>(): ICollection<void, void, T> {
+  return {
+    setup: () => {},
+    unfold: function () {
+      return undefined;
     },
   };
-  return coll;
+}
+
+export function fromOnce<T>(x: T) {
+  return transduce(onceColl<T>(), x);
+}
+
+const done = Symbol("done");
+export function onceColl<T>(): ICollection<T | typeof done, T, T> {
+  return {
+    setup: (x) => x,
+    unfold: function (x) {
+      if (x === done) return undefined;
+      return [done, x];
+    },
+  };
+}
+
+export function iterColl<T>(): ICollection<
+  () => IteratorResult<T, any>,
+  Iterable<T>,
+  T
+> {
+  return {
+    setup: getIter,
+    unfold: function (next) {
+      const { value, done } = next();
+      if (done) return undefined;
+      return [next, value];
+    },
+  };
 }
 
 export function fromIter<T>(init: Iterable<T>) {
-  return transduce<() => IteratorResult<T, any>, Iterable<T>, T>(
-    iterColl(),
-    init,
-  );
+  return transduce(iterColl<T>(), init);
 }
 
 export function toMap<K, V>() {
@@ -68,34 +82,23 @@ export function toMap<K, V>() {
       acc.set(k, v);
       return acc;
     },
-    result: identity<Map<K, V>>,
   };
 }
 
-export function toArray<B>() {
+export { toArray };
+
+export const arrayColl = <T>(): ICollection<T[], T[], T> => {
   return {
-    init: () => [] as B[],
-    fold: function (acc: B[], b: B) {
-      acc.push(b);
-      return acc;
-    },
-    result: identity<B[]>,
-  };
-}
-
-export function arrayColl<T>(): ICollection<T[], T[], T> {
-  const coll = {
-    setup: (xs: T[]) => [...xs],
-    unfold: function (xs: T[]) {
+    setup: (xs) => [...xs],
+    unfold: function (xs) {
       const x = xs.shift();
       if (x === undefined) {
         return undefined;
       }
-      return [xs, x] as const;
+      return [xs, x];
     },
   };
-  return coll;
-}
+};
 
 export function fromArray<T>(init: T[]) {
   return transduce<T[], T[], T>(arrayColl(), init);
@@ -107,25 +110,24 @@ function toOpFactory<T>(id: T, op: (a: T, b: T) => T) {
     return {
       init: constant(id),
       fold: op,
-      result: identity<T>,
     };
   };
 }
 
 // for the sake of respecting the identity law
-function opCollFactory<T>(id: T) {
+function opCollFactory<T>(id: T): ICollection<T, T, T> {
   return {
-    setup: identity<T>,
-    unfold: function (acc: T) {
+    setup: identity,
+    unfold: function (acc) {
       if (acc === id) return undefined;
-      return [id, acc] as const;
+      return [id, acc];
     },
   };
 }
 
 function fromOpFactory<T>(id: T) {
   return function (init: T) {
-    return transduce<T, T, T>(opCollFactory(id), init);
+    return transduce(opCollFactory(id), init);
   };
 }
 
@@ -136,20 +138,23 @@ export const fromMul = fromOpFactory(1);
 export const toConcat = toOpFactory("", (a: string, b: string) => a + b);
 export const fromConcat = fromOpFactory("");
 
-export function loopColl<T>(cond: (b: T) => boolean, step: (b: T) => T) {
+export function loopColl<T>(
+  cond: (b: T) => unknown,
+  step: (b: T) => T,
+): ICollection<T, T, T> {
   return {
-    setup: identity<T>,
-    unfold: (acc: T) => {
+    setup: identity,
+    unfold: (acc) => {
       const b = acc;
       if (!cond(b)) return undefined;
       acc = step(acc);
-      return [acc, b] as const;
+      return [acc, b];
     },
   };
 }
-export function fromLoop<T>(cond: (b: T) => boolean, step: (b: T) => T) {
+export function fromLoop<T>(cond: (b: T) => unknown, step: (b: T) => T) {
   return function (init: T) {
-    return transduce<T, T, T>(loopColl(cond, step), init);
+    return transduce(loopColl(cond, step), init);
   };
 }
 

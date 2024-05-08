@@ -1,9 +1,6 @@
-import { Ctx } from "./core";
-import { ICollection } from "./transformers";
+import { ICollection, Op } from "./core";
 
-export type Op<A, B, N> = (c: Ctx<A, B>) => Ctx<A, N>;
-
-export function id<A, B>(): Op<A, B, B> {
+export function id<B>(): Op<B, B> {
   return function (ctx) {
     return {
       ...ctx,
@@ -14,7 +11,7 @@ export function id<A, B>(): Op<A, B, B> {
   };
 }
 
-export function take<A, B>(n: number): Op<A, B, B> {
+export function take<B>(n: number): Op<B, B> {
   return function (ctx) {
     if (n === 0)
       return {
@@ -36,7 +33,7 @@ export function take<A, B>(n: number): Op<A, B, B> {
   };
 }
 
-export function drop<A, B>(n: number): Op<A, B, B> {
+export function drop<B>(n: number): Op<B, B> {
   return function (ctx) {
     let i = 0;
     return {
@@ -50,7 +47,7 @@ export function drop<A, B>(n: number): Op<A, B, B> {
   };
 }
 
-export function takeWhile<A, B>(c: (b: B) => boolean): Op<A, B, B> {
+export function takeWhile<B>(c: (b: B) => unknown): Op<B, B> {
   return function (ctx) {
     return {
       ...ctx,
@@ -62,9 +59,9 @@ export function takeWhile<A, B>(c: (b: B) => boolean): Op<A, B, B> {
   };
 }
 
-export function dropWhile<A, B>(c: (b: B) => boolean): Op<A, B, B> {
+export function dropWhile<B>(c: (b: B) => unknown): Op<B, B> {
   return function (ctx) {
-    let dropping = true;
+    let dropping: unknown = true;
     return {
       ...ctx,
       fold: function (a, b) {
@@ -75,7 +72,7 @@ export function dropWhile<A, B>(c: (b: B) => boolean): Op<A, B, B> {
     };
   };
 }
-export function find<A, B>(c: (b: B) => boolean): Op<A, B, B> {
+export function find<B>(c: (b: B) => unknown): Op<B, B> {
   return function (ctx) {
     return {
       ...ctx,
@@ -90,7 +87,7 @@ export function find<A, B>(c: (b: B) => boolean): Op<A, B, B> {
   };
 }
 
-export function filter<A, B>(c: (b: B) => boolean): Op<A, B, B> {
+export function filter<B>(c: (b: B) => unknown): Op<B, B> {
   return function (ctx) {
     return {
       ...ctx,
@@ -102,7 +99,7 @@ export function filter<A, B>(c: (b: B) => boolean): Op<A, B, B> {
   };
 }
 
-export function replace<A, B>(c: (b: B) => boolean, v: B): Op<A, B, B> {
+export function replace<B>(c: (b: B) => unknown, v: B): Op<B, B> {
   return function (ctx) {
     return {
       ...ctx,
@@ -114,7 +111,7 @@ export function replace<A, B>(c: (b: B) => boolean, v: B): Op<A, B, B> {
   };
 }
 
-export function uniq<A, B>(): Op<A, B, B> {
+export function uniq<B>(): Op<B, B> {
   return function (ctx) {
     let first = true;
     let last: B | undefined = undefined;
@@ -131,7 +128,7 @@ export function uniq<A, B>(): Op<A, B, B> {
   };
 }
 
-export function map<A, B, N>(f: (v: B) => N): Op<A, N, B> {
+export function map<B, N>(f: (v: B) => N): Op<N, B> {
   return function (ctx) {
     return {
       ...ctx,
@@ -142,7 +139,7 @@ export function map<A, B, N>(f: (v: B) => N): Op<A, N, B> {
   };
 }
 
-export function scan<A, B, N>(f: (a: N, b: B) => N, init: N): Op<A, N, B> {
+export function scan<B, N>(f: (a: N, b: B) => N, init: N): Op<N, B> {
   return function (ctx) {
     let acc_ = init;
     return {
@@ -155,7 +152,7 @@ export function scan<A, B, N>(f: (a: N, b: B) => N, init: N): Op<A, N, B> {
   };
 }
 
-export function slices<A, B>(len: number): Op<A, B[], B> {
+export function slices<B>(len: number): Op<B[], B> {
   if (len <= 0) throw new Error("len must be positive");
   return function (ctx) {
     let acc_: B[] = [];
@@ -174,7 +171,7 @@ export function slices<A, B>(len: number): Op<A, B[], B> {
   };
 }
 
-export function apertures<A, B>(len: number): Op<A, B[], B> {
+export function apertures<B>(len: number): Op<B[], B> {
   if (len <= 0) throw new Error("len must be positive");
   return function (ctx) {
     let acc_: B[] = [];
@@ -194,42 +191,42 @@ export function apertures<A, B>(len: number): Op<A, B[], B> {
 }
 
 // aka flatMap
-export function chain<A, B, Q>(
+export function chain<B, Q>(
   coll: ICollection<any, Q, B>,
   f: (b: B) => Q,
-  op: Op<A, B, B> = id<A, B>(),
-): Op<A, B, B> {
+  op: Op<B, B> = id<B>(),
+): Op<B, B> {
   return function (ctx) {
     return {
       ...ctx,
       fold: function (acc, b) {
-        return ctx.transform(op, acc, ctx.fold, f(b), coll);
+        return ctx.transform(op, f(b), coll)(acc, ctx.fold);
       },
     };
   };
 }
 
 // aka flatten
-export function join<A, B, Q>(
+export function join<B, Q>(
   coll: ICollection<any, Q, B>,
-  op: Op<A, B, B> = id<A, B>(),
-): Op<A, B, Q> {
+  op: Op<B, B> = id<B>(),
+): Op<B, Q> {
   return function (ctx) {
     return {
       ...ctx,
       fold: function (acc, b) {
-        return ctx.transform(op, acc, ctx.fold, b, coll);
+        return ctx.transform(op, b, coll)(acc, ctx.fold);
       },
     };
   };
 }
 
-export function zip<A, B, C, Q, R>(
+export function zip<B, C, Q, R>(
   f: (b: B, c: C) => R,
   coll: ICollection<any, Q, C>,
   right: Q,
-  op: Op<C[], C, C> = id<C[], C>(),
-): Op<A, R, B> {
+  op: Op<C, C> = id(),
+): Op<R, B> {
   return function (ctx) {
     const iter = ctx.step(op, right, coll);
     return {
